@@ -11,7 +11,7 @@ import { getContentstackEndpoints, getRegionForString, Region } from "@timbennik
 let region: Region;
 let endpoints: any;
 
-let csRegion = process.env?.NEXT_PUBLIC_CONTENTSTACK_REGION as Region;
+let csRegion = process.env.NEXT_PUBLIC_CONTENTSTACK_REGION as Region;
 
 if (!csRegion) {
   throw new Error("NEXT_PUBLIC_CONTENTSTACK_REGION is not set. Please define the region in your environment variables.");
