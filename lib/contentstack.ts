@@ -11,8 +11,8 @@ import { getContentstackEndpoints, getRegionForString } from "@timbenniks/conten
 const region = getRegionForString(process.env.NEXT_PUBLIC_CONTENTSTACK_REGION as string) || (process.env.NEXT_PUBLIC_CONTENTSTACK_REGION as string) || 'us';
 const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true';
 
-let endpoints:any;
-let isDevelopmentRegion = !!(process.env.NEXT_PUBLIC_CONTENTSTACK_API_HOST && process.env.NEXT_PUBLIC_CONTENTSTACK_APP_HOST);
+
+const isDevelopmentRegion = !!(process.env.NEXT_PUBLIC_CONTENTSTACK_API_HOST && process.env.NEXT_PUBLIC_CONTENTSTACK_APP_HOST);
 
 
 function removeHttpPrefix(url: string) {
@@ -28,7 +28,7 @@ function determineContentstackEndpoints() {
     const previewHost = appHost.replace('app', 'rest-preview');
     // Create endpoints object with generated values
     return {
-      api: apiHost,
+      contentManagement: apiHost,
       application: appHost,
       preview: previewHost
     };
@@ -38,7 +38,7 @@ function determineContentstackEndpoints() {
   }
 }
 
-endpoints = determineContentstackEndpoints(); // Get the endpoints 
+const endpoints = determineContentstackEndpoints(); // Get the endpoints 
 
 
 export const stack = contentstack.stack({
@@ -51,7 +51,7 @@ export const stack = contentstack.stack({
   // Setting the region based on environment variables
   region: region,
   // Host configuration for development regions
-  ...(isDevelopmentRegion && endpoints.api ? { host: endpoints.api } : {}),
+  ...(isDevelopmentRegion ? { host: endpoints.contentManagement } : {}),
   live_preview: {    
     // Enabling live preview if specified in environment variables
     enable: isPreviewEnabled,
