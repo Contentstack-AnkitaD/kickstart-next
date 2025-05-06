@@ -5,44 +5,41 @@ import ContentstackLivePreview, { IStackSdk } from "@contentstack/live-preview-u
 // Importing the Page type definition 
 import { Page } from "./types";
 // helper functions from private package to retrieve Contentstack endpoints in a convienient way
-import { getContentstackEndpoints, getRegionForString, Region } from "@timbenniks/contentstack-endpoints";
+import { getContentstackEndpoints, getRegionForString } from "@timbenniks/contentstack-endpoints";
 
 // Get region or handle custom development regions
-let region: Region;
-let endpoints: any;
+const region = getRegionForString(process.env.NEXT_PUBLIC_CONTENTSTACK_REGION as string) || (process.env.NEXT_PUBLIC_CONTENTSTACK_REGION as string) || 'us';
+const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true';
 
-const csRegion = process.env.NEXT_PUBLIC_CONTENTSTACK_REGION as Region;
+let endpoints:any;
+let isDevelopmentRegion = !!(process.env.NEXT_PUBLIC_CONTENTSTACK_API_HOST && process.env.NEXT_PUBLIC_CONTENTSTACK_APP_HOST);
 
-if (!csRegion) {
-  throw new Error("NEXT_PUBLIC_CONTENTSTACK_REGION is not set. Please define the region in your environment variables.");
+
+function removeHttpPrefix(url: string) {
+  // Remove "http://" or "https://" prefix from the URL
+  return url.replace(/^(http:\/\/|https:\/\/)/, '');
 }
 
-// Check if it's a standard (EU/US) or development region
-// Standard regions are "eu" or "us", development regions are expected to be "dev22", "dev14", "stag", etc.
-const isStandardRegion = ['eu', 'us'].includes(csRegion?.toLowerCase());
-const isDevelopmentRegion = !isStandardRegion && !!csRegion;
-
-// Handle endpoints generation based on region type
-if (isDevelopmentRegion) {
-  // For development regions, generate endpoints based on the region value
-  region = csRegion;
-  
-  const apiHost = `${csRegion}-api.csnonprod.com`;
-  const appHost = `${csRegion}-app.csnonprod.com`;
-  const previewHost = `${csRegion}-rest-preview.csnonprod.com`;
-  
-  // Create endpoints object with generated values
-  endpoints = {
-    api: apiHost,
-    application: appHost,
-    preview: previewHost
-  };
-  
-} else {
-  // For standard regions (EU/US), get an object with all endpoints for region.
-  region = getRegionForString(csRegion); // Ensure region is typed as Region
-  endpoints = getContentstackEndpoints(region, true);
+function determineContentstackEndpoints() {
+  // Handle endpoints generation 
+  if (isDevelopmentRegion) {
+    const apiHost = removeHttpPrefix(process.env.NEXT_PUBLIC_CONTENTSTACK_API_HOST as string);
+    const appHost = removeHttpPrefix(process.env.NEXT_PUBLIC_CONTENTSTACK_APP_HOST as string);
+    const previewHost = appHost.replace('app', 'rest-preview');
+    // Create endpoints object with generated values
+    return {
+      api: apiHost,
+      application: appHost,
+      preview: previewHost
+    };
+  } else {
+    // For standard regions (EU/US), get an object with all endpoints for region.
+    return getContentstackEndpoints(region, true);
+  }
 }
+
+endpoints = determineContentstackEndpoints(); // Get the endpoints 
+
 
 export const stack = contentstack.stack({
   // Setting the API key from environment variables
@@ -57,7 +54,7 @@ export const stack = contentstack.stack({
   ...(isDevelopmentRegion && endpoints.api ? { host: endpoints.api } : {}),
   live_preview: {    
     // Enabling live preview if specified in environment variables
-    enable: process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true',
+    enable: isPreviewEnabled,
     // Setting the preview token from environment variables
     preview_token: process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_TOKEN,
     // Setting the host for live preview based on the region
@@ -65,11 +62,12 @@ export const stack = contentstack.stack({
   }
 });
 
+
 // Initialize live preview functionality
 export function initLivePreview() {
   ContentstackLivePreview.init({
     ssr: false, // Disabling server-side rendering for live preview
-    enable: process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true', // Enabling live preview if specified in environment variables
+    enable: isPreviewEnabled, // Enabling live preview if specified in environment variables
     mode: "builder", // Setting the mode to "builder" for visual builder
     stackSdk: stack.config as IStackSdk, // Passing the stack configuration
     stackDetails: {
@@ -97,7 +95,7 @@ export async function getPage(url: string) {
   if (result.entries) {
     const entry = result.entries[0]; // Getting the first entry from the result
 
-    if (process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true') {
+    if (isPreviewEnabled) {
       contentstack.Utils.addEditableTags(entry, 'page', true); // Adding editable tags for live preview if enabled
     }
 
